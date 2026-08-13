@@ -1,0 +1,39 @@
+version: 1
+project:
+  title: inv-fpinn
+  subtitle: Inverse modelling of fractional-order systems using PINNs
+  authors:
+    - name: Vishnu
+  toc:
+    - file: welcome.md
+    - title: Overview
+      children:
+        - file: Overview/project_intro.md
+        - file: Overview/status_updates.md
+        - file: Overview/roles.md
+        - file: Overview/links.md
+        - file: Overview/recordings.md
+    - title: Motivation
+      children:
+        - file: Motivation/motivation.md
+    - title: Problem Formulation
+      children:
+        - file: Problem_Formulation/problem_formulation.md
+    - title: Data
+      children:
+        - file: Data/data.md
+    - title: Research Questions
+      children:
+        - file: Research_Questions/research_questions.md
+    - title: Deliverables
+      children:
+        - file: Deliverables/deliverables.md
+    - title: Experiments
+      children:
+        - file: Experiments/experiments.md
+    - title: Technical Analysis
+      children:
+        - file: Technical_Analysis/technical_analysis.md
+    - title: Brain Dump
+      children:
+        - file: Brain_Dump/brain_dump.md
