@@ -6,7 +6,7 @@ Goal: recover fractional-order parameters (alpha, tau) of a fractional single-de
 
 ## Sections
 
-- [Overview](Overview/project_intro.md) — project intro, status, roles, links, recordings
+- [Overview](overview/project_intro.md) — project intro, status, roles, links, recordings
 - [Motivation](Motivation/motivation.md) — why fractional-order systems, why inverse identification, why PINNs
 - [Problem_Formulation](Problem_Formulation/problem_formulation.md) — math setup and inverse problem
 - [Data](Data/data.md) — synthetic data generation via FDM solver

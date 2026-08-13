@@ -8,11 +8,11 @@ project:
     - file: welcome.md
     - title: Overview
       children:
-        - file: Overview/project_intro.md
-        - file: Overview/status_updates.md
-        - file: Overview/roles.md
-        - file: Overview/links.md
-        - file: Overview/recordings.md
+        - file: overview/project_intro.md
+        - file: overview/status_updates.md
+        - file: overview/roles.md
+        - file: overview/links.md
+        - file: overview/recordings.md
     - title: Motivation
       children:
         - file: Motivation/motivation.md
