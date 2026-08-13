@@ -1,2 +1,4 @@
 .env
 docs_source/_build/
+__pycache__/
+.idea/
