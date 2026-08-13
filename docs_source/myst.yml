@@ -36,3 +36,7 @@ project:
     - title: Brain Dump
       children:
         - file: Brain_Dump/brain_dump.md
+site:
+  options:
+    logo: iith_logo.jpg
+  template: book-theme
