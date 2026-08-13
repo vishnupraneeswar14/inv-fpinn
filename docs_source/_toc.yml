@@ -7,7 +7,6 @@ parts:
   - file: overview/status_updates
   - file: overview/roles
   - file: overview/links
-  - file: overview/recordings
 - caption: Motivation
   chapters:
   - file: Motivation/motivation

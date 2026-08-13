@@ -12,7 +12,6 @@ project:
         - file: overview/status_updates.md
         - file: overview/roles.md
         - file: overview/links.md
-        - file: overview/recordings.md
     - title: Motivation
       children:
         - file: Motivation/motivation.md
