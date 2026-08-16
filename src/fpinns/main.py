@@ -9,8 +9,7 @@ import torch
 from fpinns.cli import parse_args
 from fpinns.fdm import FracSDOF
 from fpinns.ffn import Net
-from fpinns.train import (init_inverse_params, load_checkpoint, log_iteration, plot_alpha,
-                          plot_tau, save_checkpoint, step_alpha, step_tau)
+from fpinns.train import init_inverse_params, load_checkpoint, log_iteration, plot_alpha, plot_tau, save_checkpoint, step_alpha, step_tau
 
 cfg = parse_args()
 
@@ -21,9 +20,7 @@ art_cfg = cfg["artifacts"]
 
 torch.manual_seed(train_cfg["seed"])
 freq = model_cfg["freq"]
-pinn = Net(model_cfg["input_size"], model_cfg["hidden_size"], model_cfg["output_size"],
-           model_cfg["layer_count"], freq, model_cfg["activation"], model_cfg["activation_init"],
-           model_cfg["use_mask"])
+pinn = Net(model_cfg["input_size"], model_cfg["hidden_size"], model_cfg["output_size"], model_cfg["layer_count"], freq, model_cfg["activation"], model_cfg["activation_init"], model_cfg["use_mask"])
 m, k, c = phys_cfg["m"], phys_cfg["k"], phys_cfg["c"]
 xo, vo = phys_cfg["x0"], phys_cfg["v0"]
 
@@ -34,11 +31,12 @@ T = phys_cfg["T"]
 
 alpha, tau = init_inverse_params(train_cfg["alpha_init"], train_cfg["tau_init"])
 
-print(f'alpha_actual: {alpha_actual}, tau_actual: {tau_actual}, T: {T}, alpha: {alpha}, tau: {tau}')
-
 resume_path = train_cfg["resume_path"]
 if resume_path:
     load_checkpoint(resume_path, pinn, alpha, tau)
+
+print(f'alpha_actual: {alpha_actual}, tau_actual: {tau_actual}, T: {T}, alpha: {alpha}, tau: {tau}')
+
 
 dt = phys_cfg["dt"]
 t_phy = torch.linspace(0, T, train_cfg["t_phy_points"], requires_grad=True).view(-1, 1)
@@ -76,33 +74,39 @@ fig_size = tuple(art_cfg["fig_size"])
 
 save_dir = art_cfg["save_dir"]
 os.makedirs(save_dir, exist_ok=True)
-jpg_alpha_path = os.path.join(save_dir, art_cfg["jpg_alpha_name"].format(alpha_actual=alpha_actual, mode=mode))
-jpg_tau_path = os.path.join(save_dir, art_cfg["jpg_tau_name"].format(alpha_actual=alpha_actual, tau_actual=tau_actual, mode=mode))
-gif_path = os.path.join(save_dir, art_cfg["gif_name"].format(alpha_actual=alpha_actual, mode=mode))
-pth_path = os.path.join(save_dir, art_cfg["pth_name"].format(alpha_actual=alpha_actual, mode=mode))
-pth_alpha_path = os.path.join(save_dir, art_cfg["pth_alpha_name"].format(alpha_actual=alpha_actual, mode=mode))
-pth_tau_path = os.path.join(save_dir, art_cfg["pth_tau_name"].format(alpha_actual=alpha_actual, mode=mode))
 
 lam1, lam2 = train_cfg["lam1"], train_cfg["lam2"]
+
+stem = "mask_step" if model_cfg["use_mask"] else "step"
+
+
+def checkpoint_path(step, phase, stem, save_dir, ckpt_dir):
+    return os.path.join(save_dir, ckpt_dir, phase, f"{stem}_{step}.pth")
+
+
+def plot_path(step, phase, stem, save_dir, plots_dir):
+    return os.path.join(save_dir, plots_dir, phase, f"{stem}_{step}.jpg")
 
 for phase_idx, (phase_name, steps) in enumerate(phases):
     iters = []
     l = []
     alpha_list = []
     tau_list = []
+    for dir_key in ("ckpt_dir", "plots_dir", "gif_dir"):
+        os.makedirs(os.path.join(save_dir, art_cfg[dir_key], phase_name), exist_ok=True)
+    print(f'Phase {phase_name} will be run for {steps} steps...')
+
     for i in range(steps):
         iters.append(i)
         st = time.time()
 
         if phase_name == "alpha":
-            loss = step_alpha(pinn, optimiser, optimiser_alpha, t_phy, t_obs, u_obs, freq, phys_cfg["force_mag"], m, k, c, dt,
-                              alpha, tau, T, tau_actual, lam1, lam2)
+            loss = step_alpha(pinn, optimiser, optimiser_alpha, t_phy, t_obs, u_obs, freq, phys_cfg["force_mag"], m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
             with torch.no_grad():
                 alpha.data = torch.clamp(alpha.data, train_cfg["clamp_min"], train_cfg["clamp_max"])
                 alpha_list.append(alpha.item())
         else:
-            loss = step_tau(pinn, optimiser, optimiser_tau, t_phy, t_obs, u_obs, freq, phys_cfg["force_mag"], m, k, c, dt,
-                            alpha, tau, T, tau_actual, lam1, lam2)
+            loss = step_tau(pinn, optimiser, optimiser_tau, t_phy, t_obs, u_obs, freq, phys_cfg["force_mag"], m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
             with torch.no_grad():
                 tau_list.append(tau.item())
         l.append(loss.detach())
@@ -111,12 +115,13 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
 
         if i % plot_every == 0:
             log_iteration(i, iteration_time, loss, alpha, tau)
+            jpg_path = plot_path(i, phase_name, stem, save_dir, art_cfg["plots_dir"])
+            os.makedirs(os.path.dirname(jpg_path), exist_ok=True)
             if phase_name == "alpha":
-                fig = plot_alpha(i, iters, alpha_list, alpha_actual, pinn, t_test, t_fdm, u_fdm, l,
-                                 jpg_alpha_path, fig_size)
+                fig = plot_alpha(i, iters, alpha_list, alpha_actual, pinn, t_test, t_fdm, u_fdm, l, jpg_path, fig_size)
             else:
-                fig = plot_tau(i, iters, tau_list, tau_actual, pinn, t_test, t_fdm, u_fdm, l,
-                               jpg_tau_path, fig_size)
+                fig = plot_tau(i, iters, tau_list, tau_actual, pinn, t_test, t_fdm, u_fdm, l, jpg_path, fig_size)
+
             fig.canvas.draw()
             image_rgba = fig.canvas.buffer_rgba()
             width, height = fig.canvas.get_width_height()
@@ -125,14 +130,14 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
             plt.close(fig)
 
         if i % gif_every == 0:
+            gif_path = os.path.join(save_dir, art_cfg["gif_dir"], phase_name, f"{stem}_{phase_name}.gif")
+            os.makedirs(os.path.dirname(gif_path), exist_ok=True)
             imageio.mimsave(gif_path, images, fps=art_cfg["fps"])
         if i % ckpt_every == 0:
-            save_checkpoint(pth_path, pinn, alpha, tau)
+            save_checkpoint(checkpoint_path(i, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinn, alpha, tau)
 
+    print(f'Phase {phase_name} is done with {steps} steps!')
     if len(phases) == 2 and phase_idx == 0:
-        if phase_name == "alpha":
-            save_checkpoint(pth_alpha_path, pinn, alpha, tau)
-        else:
-            save_checkpoint(pth_tau_path, pinn, alpha, tau)
+        save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinn, alpha, tau)
 
-save_checkpoint(pth_path, pinn, alpha, tau)
+save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinn, alpha, tau)

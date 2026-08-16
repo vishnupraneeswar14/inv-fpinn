@@ -53,9 +53,7 @@ def load_checkpoint(path, pinn, alpha, tau):
 
 
 def save_checkpoint(path, pinn, alpha, tau):
-    torch.save({"model_parameters": pinn.state_dict(),
-                "inverse_parameter_alpha": alpha.detach().cpu().numpy(),
-                "inverse_parameter_tau": tau.detach().cpu().numpy()}, path)
+    torch.save({"model_parameters": pinn.state_dict(), "inverse_parameter_alpha": alpha.detach().cpu().numpy(), "inverse_parameter_tau": tau.detach().cpu().numpy()}, path)
 
 
 def log_iteration(i, iteration_time, loss, alpha, tau):

@@ -14,8 +14,8 @@ physics:
   c: 2
   x0: 0.5
   v0: 0.0
-  alpha_actual: 0.45
-  T: 50.0
+  alpha_actual: 0.6
+  T: 20.0
   tau_actual: 12.0
   dt: 0.01
   force_mag: 1.0
@@ -25,6 +25,7 @@ training:
   mode: alpha
   alpha_steps: 10000
   tau_steps: 10000
+#  resume_path: artifacts/checkpoints/alpha/mask_step_6.pth
   resume_path: null
   alpha_init: 0.9
   tau_init: 13.0
@@ -33,7 +34,7 @@ training:
   lr_pinn: 0.001
   lr_tau: 0.1
   lr_alpha: 0.001
-  lam1: 0.0001
+  lam1: 0.004
   lam2: 0.1
   noise_std: 0.02
   t_phy_points: 2000
@@ -41,15 +42,12 @@ training:
   t_obs_points: 1000
 
 artifacts:
-  save_dir: .
+  save_dir: artifacts
   fps: 10
   fig_size: [15, 20]
-  plot_every: 39
-  gif_every: 78
-  ckpt_every: 499
-  jpg_alpha_name: "Inverse_alpha_mask_{alpha_actual}_{mode}.jpg"
-  jpg_tau_name: "Inverse_tau_mask_{alpha_actual}_{tau_actual}_{mode}.jpg"
-  gif_name: "animation_Inverse_alpha_mask_{alpha_actual}_{mode}.gif"
-  pth_name: "batch_alpha_inverse_{alpha_actual}_{mode}.pth"
-  pth_alpha_name: "batch_alpha_inverse_{alpha_actual}_{mode}_alpha.pth"
-  pth_tau_name: "batch_alpha_inverse_{alpha_actual}_{mode}_tau.pth"
+  plot_every: 40
+  gif_every: 80
+  ckpt_every: 200
+  gif_dir: gif
+  ckpt_dir: checkpoints
+  plots_dir: plots

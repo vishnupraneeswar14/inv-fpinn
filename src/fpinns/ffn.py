@@ -22,10 +22,10 @@ class mask_activation(nn.Module):
     def __init__(self, a: list) -> None:
         super().__init__()
         self.activation, size, initial_value = a
-        self.learnable_vector = initial_value*nn.Parameter(torch.ones((1, size), dtype=torch.float32))
+        self.learnable_vector = nn.Parameter(initial_value*torch.ones((1, size), dtype=torch.float32))
 
     def forward(self, x):
-        return self.activation(x)*(1-torch.exp(-(self.learnable_vector.detach()*x)**2))
+        return self.activation(x)*(1-torch.exp(-(self.learnable_vector*x)**2))
 
 
 class Net(nn.Module):
@@ -43,6 +43,7 @@ class Net(nn.Module):
 
         for _ in range(layer_count - 1):
             self.Layer.extend([nn.Linear(self.hidden_size, self.hidden_size), activation])
+
         self.Out_Layer = nn.Linear(self.hidden_size,self.output_size)
 
     def forward(self,x):

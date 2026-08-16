@@ -181,7 +181,6 @@ def fraccaputo_fixed_tau(yt, h, a, tau_int):
     j = (k.unsqueeze(1) - cols - 1)[mask]
     kk = k[1:]
     kk_st = k_st[1:]
-    # print(kk_st, kk_st.size())
     w[kk, (kk - kk_st)] = (kk_st + 1)**(1 - a) - 3 * (kk_st)**(1 - a) + 2 * (kk_st - 1)**(1 - a)
     w[mask] = (j + 2)**(1 - a) - 2 * (j + 1)**(1 - a) + j**(1 - a)
     w[0, 0] = 0
@@ -192,22 +191,15 @@ def fraccaputo_fixed_tau(yt, h, a, tau_int):
 def fraccaputo_V6_mine(yt, h, a, tau, T, tau_actual):
     tau_idx = tau / h
     tau_floor = torch.floor(tau_idx).detach()
-    # tau_floor = smooth_floor_exact(tau_idx)
     tau_ceil = tau_floor + 1
     if tau_floor == T/h:
         tau_ceil = tau_floor-1
-    alpha = tau_idx - tau_floor
-    alpha_mine = 1-alpha
 
-    minie = min(alpha, alpha_mine)
-    maxie = max(alpha, alpha_mine)
+    diff = tau_idx - tau_floor
+    diff_1 = 1-diff
 
-    # if tau_actual - torch.floor(torch.Tensor([tau_actual])).detach() <= 0.5:
-    #     minie = max(alpha, alpha_mine)
-    #     maxie = min(alpha, alpha_mine)
-    # else:
-    #     minie = min(alpha, alpha_mine)
-    #     maxie = max(alpha, alpha_mine)
+    minie = min(diff, diff_1)
+    maxie = max(diff, diff_1)
 
     tau_floor_val = tau_floor.item()
     tau_ceil_val = tau_ceil.item()
