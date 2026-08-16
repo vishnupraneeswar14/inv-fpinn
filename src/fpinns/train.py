@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 
-from fraccaputo import fraccaputo_V6_mine
+from fpinns.fraccaputo import fraccaputo_V6_mine
 
 
 def compute_loss(pinn, t_phy, t_obs, u_obs, freq, force_mag, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):

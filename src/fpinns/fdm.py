@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from fraccaputo import fraccaputo_v2
+from fpinns.fraccaputo import fraccaputo_v2
 
 
 def FracSDOF(m,k,c,dt,F,x0,v0,T,a,tau):

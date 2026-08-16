@@ -19,6 +19,11 @@ Usage:
     paramseva_login.py                       # log in using ./.env
     paramseva_login.py --env /path/.env --code
     paramseva_login.py --host ... --user ... # override .env
+    paramseva_login.py --user 2              # log in as 2nd user block in .env
+
+Multiple users: setup.py appends one block per user (blank line between
+blocks). Pick interactively, or pass --user <1-based index>. --code uses
+user 1 by default and prints the username next to the code.
 
 Get the secret from Google Authenticator:
     App > Export accounts > verify PIN > scan the shown QR with zbarimg:
@@ -92,6 +97,47 @@ def load_dotenv(path=".env"):
     return env
 
 
+def load_dotenv_entries(path=".env"):
+    """Parse .env into an ordered list of user blocks.
+
+    Blocks are separated by blank lines; each block carries one user's
+    HOST / USERNAME / PASSWORD / TOTP_SECRET. A legacy flat file (no
+    blank lines) comes back as a single entry, so old setups keep working.
+    """
+    entries = []
+    cur = {}
+    if Path(path).exists():
+        for line in Path(path).read_text().splitlines():
+            if not line.strip():
+                if cur:
+                    entries.append(cur)
+                    cur = {}
+                continue
+            for k, v in parse_dotenv_line(line):
+                cur[k] = v
+    if cur:
+        entries.append(cur)
+    return entries
+
+
+def pick_user(entries):
+    print("multiple users in config, pick one:")
+    for i, e in enumerate(entries, 1):
+        name = e.get("USERNAME") or e.get("USER") or "?"
+        host = e.get("HOST") or "?"
+        print(f"  [{i}] {name} @ {host}")
+    while True:
+        try:
+            raw = input(f"pick 1-{len(entries)} (Enter = 1): ").strip()
+        except EOFError:
+            sys.exit(f"multiple users found; pass --user <1-{len(entries)}>")
+        if not raw:
+            return 0
+        if raw.isdigit() and 1 <= int(raw) <= len(entries):
+            return int(raw) - 1
+        print("invalid choice")
+
+
 PROMPTS = [
     r"(?i)verification code",      # 0  code
     r"(?i)one[- ]time password",   # 1  code
@@ -152,6 +198,7 @@ def sync_terminal(child):
 
 
 def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff=15, debug=False):
+    print(f"connecting as {user}@{host} ...", file=sys.stderr)
     seen_prompt = False
     for attempt in range(1, attempts + 1):
         child = pexpect.spawn(ssh_cmd,
@@ -161,6 +208,7 @@ def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff
                               encoding="utf-8", timeout=timeout)
         sync_terminal(child)
         code_hits = 0
+        captcha_hits = 0
         seen_prompt = False
         retry_needed = False
         try:
@@ -184,11 +232,16 @@ def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff
                     child.sendline(user)
                 elif i == CAPTCHA_IDX:
                     seen_prompt = True
+                    captcha_hits += 1
+                    if captcha_hits > 3:
+                        child.close(force=True)
+                        sys.exit("captcha rejected 3 times (could not solve) - check the captcha format")
                     answer = solve_captcha(child.before or "")
+                    print(f"captcha round {captcha_hits}: {answer!r}",
+                          file=sys.stderr)
                     if not answer:
                         child.close(force=True)
                         sys.exit("could not parse captcha text")
-                    print(f"captcha solved: {answer}", file=sys.stderr)
                     child.sendline(answer)
                 elif i == 8:
                     child.sendline("yes")
@@ -207,7 +260,15 @@ def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff
                 time.sleep(backoff)
                 continue
             sync_terminal(child)
-            child.setecho(True)
+            child_fd = child.child_fd if hasattr(child, "child_fd") else child.fd
+            a = list(termios.tcgetattr(child_fd))
+            a[0] = termios.IGNBRK
+            a[1] = 0
+            a[2] = (a[2] & ~(termios.CSIZE | termios.PARENB)) | termios.CS8
+            a[3] = 0
+            a[6][termios.VMIN] = 1
+            a[6][termios.VTIME] = 0
+            termios.tcsetattr(child_fd, termios.TCSANOW, a)
             return child
         except pexpect.exceptions.EOF:
             child.close(force=True)
@@ -281,7 +342,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", help="SSH host")
-    parser.add_argument("--user", help="SSH username")
+    parser.add_argument("--user", help="user index (1-based) or SSH username")
     parser.add_argument("--password", help="SSH password")
     parser.add_argument("--secret", help="TOTP secret (base32 or otpauth:// URL)")
     parser.add_argument("--ssh-cmd", default=os.environ.get("PARAMSEVA_SSH_CMD", "ssh"),
@@ -290,32 +351,55 @@ def main():
                         help="dotenv file with credentials (default: ./.env)")
     parser.add_argument("--attempts", type=int, default=5,
                         help="connection retries on network failure (default: 5)")
-    parser.add_argument("--backoff", type=int, default=15,
-                        help="seconds between retries (default: 15)")
+    parser.add_argument("--backoff", type=int, default=5,
+                        help="seconds between retries (default: 5)")
     parser.add_argument("--code", action="store_true", help="print current TOTP code and exit")
     parser.add_argument("--debug", action="store_true",
                         help="log every prompt matched during login")
     args = parser.parse_args()
 
-    cfg = {**load_config(), **load_dotenv(args.env)}
-    host = args.host or cfg.get("HOST")
-    user = args.user or cfg.get("USERNAME") or cfg.get("USER")
-    password = args.password or cfg.get("PASSWORD")
-    secret = args.secret or cfg.get("TOTP_SECRET")
+    entries = load_dotenv_entries(args.env)
+    if not entries:
+        entries = [load_config()]
+
+    if args.user is not None and args.user.isdigit():
+        idx = int(args.user) - 1
+        if not 0 <= idx < len(entries):
+            sys.exit(f"--user {args.user}: only {len(entries)} user(s) in config")
+    elif len(entries) == 1 or args.code:
+        idx = 0
+    else:
+        idx = pick_user(entries)
+
+    entry = entries[idx]
+
+    def eget(key):
+        return entry.get(key) or (entry.get("USER") if key == "USERNAME" else None)
+
+    missing = [k for k in ("HOST", "USERNAME", "PASSWORD", "TOTP_SECRET") if not eget(k)]
+    if missing:
+        if not any(entry.values()):
+            print(f"Missing credentials. Write them to {args.env} (chmod 600):")
+            print("    HOST=login.cluster")
+            print("    USERNAME=vishn")
+            print("    PASSWORD=...")
+            print("    TOTP_SECRET=...   # base32 or otpauth:// URL")
+        else:
+            name = eget("USERNAME") or "?"
+            sys.exit(f"user {idx + 1} ({name}) incomplete: missing {', '.join(missing)}. Re-run setup.py.")
+        sys.exit(1)
 
     if args.code:
+        secret = args.secret or eget("TOTP_SECRET")
         if not secret:
             sys.exit("no TOTP_SECRET set")
-        print(safe_code(secret))
+        print(f"{eget('USERNAME')}: {safe_code(secret)}")
         return
 
-    if not all((host, user, password, secret)):
-        print(f"Missing credentials. Write them to {args.env} (chmod 600):")
-        print("    HOST=login.cluster")
-        print("    USERNAME=vishn")
-        print("    PASSWORD=...")
-        print("    TOTP_SECRET=...   # base32 or otpauth:// URL")
-        sys.exit(1)
+    host = args.host or eget("HOST")
+    user = args.user if (args.user is not None and not args.user.isdigit()) else eget("USERNAME")
+    password = args.password or eget("PASSWORD")
+    secret = args.secret or eget("TOTP_SECRET")
 
     child = login(args.ssh_cmd, host, user, password, secret,
                   attempts=args.attempts, backoff=args.backoff, debug=args.debug)

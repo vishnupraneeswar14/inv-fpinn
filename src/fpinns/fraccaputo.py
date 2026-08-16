@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from scipy.special import gamma
 
-from helper import smooth_ceil
+from fpinns.helper import smooth_ceil
 
 
 def fraccaputo(yt, h, a, tau):
@@ -199,15 +199,15 @@ def fraccaputo_V6_mine(yt, h, a, tau, T, tau_actual):
     alpha = tau_idx - tau_floor
     alpha_mine = 1-alpha
 
-    # minie = min(alpha, alpha_mine)
-    # maxie = max(alpha, alpha_mine)
+    minie = min(alpha, alpha_mine)
+    maxie = max(alpha, alpha_mine)
 
-    if tau_actual - torch.floor(torch.Tensor([tau_actual])).detach() <= 0.5:
-        minie = max(alpha, alpha_mine)
-        maxie = min(alpha, alpha_mine)
-    else:
-        minie = min(alpha, alpha_mine)
-        maxie = max(alpha, alpha_mine)
+    # if tau_actual - torch.floor(torch.Tensor([tau_actual])).detach() <= 0.5:
+    #     minie = max(alpha, alpha_mine)
+    #     maxie = min(alpha, alpha_mine)
+    # else:
+    #     minie = min(alpha, alpha_mine)
+    #     maxie = max(alpha, alpha_mine)
 
     tau_floor_val = tau_floor.item()
     tau_ceil_val = tau_ceil.item()

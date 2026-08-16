@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """setup.py: onboard paramseva_login credentials for a teammate.
 
-Prompts for host / username / password / TOTP secret and writes ./.env.
+Prompts for host / username / password / TOTP secret and appends them to
+./.env. Each run adds one user block (blank line between blocks), so
+multiple users can live in the same file; paramseva_login.py picks a
+user interactively or with --user <1-based index>.
 
 The TOTP secret accepts any of:
     base32 string          e.g. JBSWY3DPEHPK3PXP
@@ -10,7 +13,7 @@ The TOTP secret accepts any of:
                            (decoded via zbarimg + decode_qr.py)
 
 Usage:
-    python3 setup.py            # interactive
+    python3 setup.py            # interactive (appends a user block)
     python3 setup.py --env net.env   # write elsewhere
 """
 
@@ -120,13 +123,14 @@ def ask_secret():
         print("re-enter the secret")
 
 
-def write_env(path, host, user, password, secret):
+def append_env(path, host, user, password, secret):
     header = "# paramseva cluster credentials - keep this file private (never commit to git)\n"
-    path.write_text(header
-                    + f"HOST={host}\n"
-                    + f"USERNAME={user}\n"
-                    + f"PASSWORD={password}\n"
-                    + f"TOTP_SECRET={secret}\n")
+    block = f"HOST={host}\nUSERNAME={user}\nPASSWORD={password}\nTOTP_SECRET={secret}\n"
+    if not path.exists() or not path.read_text().strip():
+        content = header + block
+    else:
+        content = path.read_text().rstrip("\n") + "\n\n" + block
+    path.write_text(content)
 
 
 def main():
@@ -141,8 +145,8 @@ def main():
         password = ask_password()
         secret = ask_secret()
 
-        write_env(Path(args.env), host, user, password, secret)
-        print(f"\nwrote {args.env}")
+        append_env(Path(args.env), host, user, password, secret)
+        print(f"\nappended user block to {args.env}")
         print(f"  HOST={host}")
         print(f"  USERNAME={user}")
         print(f"  PASSWORD={'*' * len(password)}")
@@ -150,7 +154,7 @@ def main():
         print()
         print("verify codes match your phone:")
         print(f"  python3 paramseva_login.py --code --env {args.env}")
-        print("then log in:")
+        print("then log in (pick user if multiple):")
         print(f"  python3 paramseva_login.py --env {args.env}")
     except KeyboardInterrupt:
         print("\naborted")

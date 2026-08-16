@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from cli import parse_args
-from fdm import FracSDOF
-from ffn import Net
-from train import (init_inverse_params, load_checkpoint, log_iteration, plot_alpha,
-                   plot_tau, save_checkpoint, step_alpha, step_tau)
+from fpinns.cli import parse_args
+from fpinns.fdm import FracSDOF
+from fpinns.ffn import Net
+from fpinns.train import (init_inverse_params, load_checkpoint, log_iteration, plot_alpha,
+                          plot_tau, save_checkpoint, step_alpha, step_tau)
 
 cfg = parse_args()
 
@@ -27,12 +27,14 @@ pinn = Net(model_cfg["input_size"], model_cfg["hidden_size"], model_cfg["output_
 m, k, c = phys_cfg["m"], phys_cfg["k"], phys_cfg["c"]
 xo, vo = phys_cfg["x0"], phys_cfg["v0"]
 
+
 alpha_actual = phys_cfg["alpha_actual"]
 tau_actual = phys_cfg["tau_actual"]
 T = phys_cfg["T"]
 
 alpha, tau = init_inverse_params(train_cfg["alpha_init"], train_cfg["tau_init"])
 
+print(f'alpha_actual: {alpha_actual}, tau_actual: {tau_actual}, T: {T}, alpha: {alpha}, tau: {tau}')
 
 resume_path = train_cfg["resume_path"]
 if resume_path:
