@@ -19,7 +19,6 @@ project:
     - title: Research Questions
       children:
         - file: Research_Questions/research_questions.md
-        - file: Research_Questions/ablation_studies.md
     - title: Engineering
       children:
         - file: Engineering/paramseva_login.md

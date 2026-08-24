@@ -16,7 +16,6 @@ parts:
 - caption: Research Questions
   chapters:
   - file: Research_Questions/research_questions
-  - file: Research_Questions/ablation_studies
 
 - caption: Engineering
   chapters:
