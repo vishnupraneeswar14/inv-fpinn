@@ -3,31 +3,34 @@ root: welcome
 parts:
 - caption: Overview
   chapters:
-  - file: overview/project_intro
-  - file: overview/status_updates
-  - file: overview/roles
-  - file: overview/links
-- caption: Motivation
+  - file: Overview/project_intro
+  - file: Overview/motivation
+  - file: Overview/roles
+
+- caption: Deliverables
   chapters:
-  - file: Motivation/motivation
-- caption: Problem Formulation
-  chapters:
-  - file: Problem_Formulation/problem_formulation
-- caption: Data
-  chapters:
-  - file: Data/data
+  - file: Deliverables/problem_formulation
+  - file: Deliverables/data
+  - file: Deliverables/deliverables
+
 - caption: Research Questions
   chapters:
   - file: Research_Questions/research_questions
-- caption: Deliverables
+  - file: Research_Questions/ablation_studies
+
+- caption: Engineering
   chapters:
-  - file: Deliverables/deliverables
-- caption: Experiments
-  chapters:
-  - file: Experiments/experiments
-- caption: Technical Analysis
-  chapters:
-  - file: Technical_Analysis/technical_analysis
+  - file: Engineering/paramseva_login
+
 - caption: Brain Dump
   chapters:
   - file: Brain_Dump/brain_dump
+
+- caption: Experiments
+  chapters:
+  - file: Experiments/experiments
+
+- caption: Technical Analysis
+  chapters:
+  - file: Technical_Analysis/technical_analysis
+
