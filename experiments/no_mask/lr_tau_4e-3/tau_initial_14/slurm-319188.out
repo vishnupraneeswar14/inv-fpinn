@@ -1,0 +1,28 @@
+==========================================
+SLURM_CLUSTER_NAME = paramseva
+SLURM_ARRAY_JOB_ID = 
+SLURM_ARRAY_TASK_ID = 
+SLURM_ARRAY_TASK_COUNT = 
+SLURM_ARRAY_TASK_MAX = 
+SLURM_ARRAY_TASK_MIN = 
+SLURM_JOB_ACCOUNT = co
+SLURM_JOB_ID = 319188
+SLURM_JOB_NAME = fixed_tau_14.sh
+SLURM_JOB_NODELIST = gpu001
+SLURM_JOB_USER = co23btech11024.co.iith
+SLURM_JOB_UID = 26833
+SLURM_JOB_PARTITION = standard
+SLURM_TASK_PID = 30825
+SLURM_SUBMIT_DIR = /home/co23btech11024.co.iith/fpinns/Vishnu/mini_project_sem7/inv-fpinn/experiments/no_mask/lr_tau_4e-3/tau_initial_14
+SLURM_CPUS_ON_NODE = 1
+SLURM_NTASKS = 
+SLURM_TASK_PID = 30825
+==========================================
+
+For better command line support, copy and paste the folowing,
+ which will source the conda setup script:
+
+. /opt/ohpc/pub/Anaconda/anaconda3/etc/profile.d/conda.sh 
+
+
+/var/share/slurm/d/job319188/slurm_script: line 5: 30968 Killed                  python3 -u -m fpinns.main --config /home/co23btech11024.co.iith/fpinns/Vishnu/mini_project_sem7/inv-fpinn/src/fpinns/config.yaml --set training.tau_init=14. > file_tau_14.txt

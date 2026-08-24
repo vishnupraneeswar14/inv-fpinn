@@ -1,0 +1,38 @@
+==========================================
+SLURM_CLUSTER_NAME = paramseva
+SLURM_ARRAY_JOB_ID = 
+SLURM_ARRAY_TASK_ID = 
+SLURM_ARRAY_TASK_COUNT = 
+SLURM_ARRAY_TASK_MAX = 
+SLURM_ARRAY_TASK_MIN = 
+SLURM_JOB_ACCOUNT = co
+SLURM_JOB_ID = 319179
+SLURM_JOB_NAME = fixed_tau_12.sh
+SLURM_JOB_NODELIST = gpu008
+SLURM_JOB_USER = co23btech11024.co.iith
+SLURM_JOB_UID = 26833
+SLURM_JOB_PARTITION = standard
+SLURM_TASK_PID = 30824
+SLURM_SUBMIT_DIR = /home/co23btech11024.co.iith/fpinns/Vishnu/mini_project_sem7/inv-fpinn/experiments/no_mask/lr_tau_7.5e-3/tau_initial_12
+SLURM_CPUS_ON_NODE = 1
+SLURM_NTASKS = 
+SLURM_TASK_PID = 30824
+==========================================
+
+For better command line support, copy and paste the folowing,
+ which will source the conda setup script:
+
+. /opt/ohpc/pub/Anaconda/anaconda3/etc/profile.d/conda.sh 
+
+
+
+For better command line support, copy and paste the folowing,
+ which will source the conda setup script:
+
+. /opt/ohpc/pub/Anaconda/anaconda3/etc/profile.d/conda.sh 
+
+
+
+The following have been reloaded with a version change:
+  1) python/3.12.12 => python/3.10.7
+

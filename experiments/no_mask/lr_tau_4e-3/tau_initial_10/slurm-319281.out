@@ -1,0 +1,48 @@
+==========================================
+SLURM_CLUSTER_NAME = paramseva
+SLURM_ARRAY_JOB_ID = 
+SLURM_ARRAY_TASK_ID = 
+SLURM_ARRAY_TASK_COUNT = 
+SLURM_ARRAY_TASK_MAX = 
+SLURM_ARRAY_TASK_MIN = 
+SLURM_JOB_ACCOUNT = co
+SLURM_JOB_ID = 319281
+SLURM_JOB_NAME = resume_tau_10.sh
+SLURM_JOB_NODELIST = gpu008
+SLURM_JOB_USER = co23btech11024.co.iith
+SLURM_JOB_UID = 26833
+SLURM_JOB_PARTITION = standard
+SLURM_TASK_PID = 32629
+SLURM_SUBMIT_DIR = /home/co23btech11024.co.iith/fpinns/Vishnu/mini_project_sem7/inv-fpinn/experiments/no_mask/lr_tau_4e-3/tau_initial_10
+SLURM_CPUS_ON_NODE = 1
+SLURM_NTASKS = 
+SLURM_TASK_PID = 32629
+==========================================
+
+For better command line support, copy and paste the folowing,
+ which will source the conda setup script:
+
+. /opt/ohpc/pub/Anaconda/anaconda3/etc/profile.d/conda.sh 
+
+
+
+For better command line support, copy and paste the folowing,
+ which will source the conda setup script:
+
+. /opt/ohpc/pub/Anaconda/anaconda3/etc/profile.d/conda.sh 
+
+
+Traceback (most recent call last):
+  File "/opt/ohpc/pub/Anaconda/anaconda3/lib/python3.9/runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/opt/ohpc/pub/Anaconda/anaconda3/lib/python3.9/runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "/home/co23btech11024.co.iith/fpinns/Vishnu/mini_project_sem7/inv-fpinn/src/fpinns/main.py", line 36, in <module>
+    load_checkpoint(resume_path, pinn, alpha, tau)
+  File "/home/co23btech11024.co.iith/fpinns/Vishnu/mini_project_sem7/inv-fpinn/src/fpinns/train.py", line 47, in load_checkpoint
+    ckpt = torch.load(path, weights_only=False)
+  File "/opt/ohpc/pub/Anaconda/anaconda3/lib/python3.9/site-packages/torch/serialization.py", line 712, in load
+    return _load(opened_zipfile, map_location, pickle_module, **pickle_load_args)
+  File "/opt/ohpc/pub/Anaconda/anaconda3/lib/python3.9/site-packages/torch/serialization.py", line 1047, in _load
+    unpickler = UnpicklerWrapper(data_file, **pickle_load_args)
+TypeError: 'weights_only' is an invalid keyword argument for Unpickler()

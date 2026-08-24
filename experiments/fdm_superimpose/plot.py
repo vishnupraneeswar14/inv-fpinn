@@ -11,7 +11,7 @@ PHYS_CONFIG = ROOT / "src" / "fpinns" / "config.yaml"
 EXP_CONFIG = Path(__file__).resolve().parent / "experiment_config.yaml"
 OUT_DIR = Path(__file__).resolve().parent
 
-phys = yaml.safe_load(PHYS_CONFIG.read_text())["physics"]
+phys = yaml.safe_load(PHYS_CONFIG.read_text( ))["physics"]
 exp = yaml.safe_load(EXP_CONFIG.read_text())
 
 mode = exp["mode"]
