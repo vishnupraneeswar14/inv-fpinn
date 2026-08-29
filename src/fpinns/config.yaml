@@ -1,12 +1,12 @@
 model:
   input_size: 1
-  hidden_size: 32
+  hidden_size: 24
   output_size: 1
-  layer_count: 3
-  freq: 10
+  layer_count: 6
+  freq: 25
   activation: tanh
   activation_init: 0.6
-  use_mask: true
+  use_mask: false
 
 physics:
   m: 2
@@ -22,19 +22,20 @@ physics:
 
 training:
   seed: 123
-  mode: alpha
+  mode: joint
   alpha_steps: 10000
   tau_steps: 10000
-#  resume_path: artifacts/checkpoints/alpha/mask_step_6.pth
-  resume_path: null
+  alpha_tau_steps: 20000
+  resume_path: artifacts/checkpoints/alpha/mask_step_6.pth
+#  resume_path: null
   alpha_init: 0.9
   tau_init: 13.0
   clamp_min: 0.1
   clamp_max: 0.99
   lr_pinn: 0.001
-  lr_tau: 0.1
+  lr_tau: 0.040
   lr_alpha: 0.001
-  lam1: 0.004
+  lam1: 0.0001
   lam2: 0.1
   noise_std: 0.02
   t_phy_points: 2000

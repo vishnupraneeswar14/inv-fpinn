@@ -2,3 +2,6 @@
 docs_source/_build/
 __pycache__/
 .idea/
+
+experiments/no_mask/mask
+*png

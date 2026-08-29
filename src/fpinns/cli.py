@@ -23,7 +23,10 @@ def coerce(value):
     try:
         return json.loads(value)
     except (json.JSONDecodeError, TypeError):
-        return value
+        try:
+            return float(value)
+        except ValueError:
+            return value
 
 
 def apply_overrides(cfg, overrides):

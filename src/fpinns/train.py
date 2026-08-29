@@ -37,6 +37,18 @@ def step_tau(pinn, optimiser, optimiser_tau, t_phy, t_obs, u_obs, freq, force_ma
     return loss
 
 
+def step_joint(pinn, optimiser, optimiser_alpha, optimiser_tau, t_phy, t_obs, u_obs, freq, force_mag, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):
+    optimiser.zero_grad()
+    optimiser_alpha.zero_grad()
+    optimiser_tau.zero_grad()
+    loss = compute_loss(pinn, t_phy, t_obs, u_obs, freq, force_mag, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
+    loss.backward()
+    optimiser.step()
+    optimiser_alpha.step()
+    optimiser_tau.step()
+    return loss
+
+
 def init_inverse_params(alpha_init, tau_init):
     alpha = torch.tensor([alpha_init], requires_grad=True)
     tau = torch.tensor([tau_init], requires_grad=True)
@@ -44,7 +56,10 @@ def init_inverse_params(alpha_init, tau_init):
 
 
 def load_checkpoint(path, pinn, alpha, tau):
-    ckpt = torch.load(path, weights_only=False)
+    try:
+        ckpt = torch.load(path, weights_only=False)
+    except TypeError:
+        ckpt = torch.load(path)
     pinn.load_state_dict(ckpt["model_parameters"])
     with torch.no_grad():
         alpha.copy_(torch.as_tensor(ckpt["inverse_parameter_alpha"], dtype=alpha.dtype))
@@ -110,6 +125,17 @@ def plot_tau(i, iters, tau_list, tau_actual, pinn, t_test, t_fdm, u_fdm, l, save
     plot_output(ax1, pinn, t_test, t_fdm, u_fdm)
     plot_tau_param(ax2, iters, tau_list, tau_actual)
     plot_loss(ax3, iters, l)
+    fig.suptitle(f"Training step {i}")
+    plt.savefig(save_path)
+    return fig
+
+
+def plot_joint(i, iters, alpha_list, alpha_actual, tau_list, tau_actual, pinn, t_test, t_fdm, u_fdm, l, save_path, fig_size):
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=fig_size)
+    plot_output(ax1, pinn, t_test, t_fdm, u_fdm)
+    plot_alpha_param(ax2, iters, alpha_list, alpha_actual)
+    plot_tau_param(ax3, iters, tau_list, tau_actual)
+    plot_loss(ax4, iters, l)
     fig.suptitle(f"Training step {i}")
     plt.savefig(save_path)
     return fig

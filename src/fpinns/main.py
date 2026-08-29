@@ -9,7 +9,7 @@ import torch
 from fpinns.cli import parse_args
 from fpinns.fdm import FracSDOF
 from fpinns.ffn import Net
-from fpinns.train import init_inverse_params, load_checkpoint, log_iteration, plot_alpha, plot_tau, save_checkpoint, step_alpha, step_tau
+from fpinns.train import init_inverse_params, load_checkpoint, log_iteration, plot_alpha, plot_joint, plot_tau, save_checkpoint, step_alpha, step_joint, step_tau
 
 cfg = parse_args()
 
@@ -64,6 +64,8 @@ elif mode == "alpha_tau":
     phases = [("alpha", train_cfg["alpha_steps"]), ("tau", train_cfg["tau_steps"])]
 elif mode == "tau_alpha":
     phases = [("tau", train_cfg["tau_steps"]), ("alpha", train_cfg["alpha_steps"])]
+elif mode == "joint":
+    phases = [("joint", train_cfg["alpha_tau_steps"])]
 else:
     raise ValueError(f"Unknown mode: {mode}")
 
@@ -85,7 +87,7 @@ def checkpoint_path(step, phase, stem, save_dir, ckpt_dir):
 
 
 def plot_path(step, phase, stem, save_dir, plots_dir):
-    return os.path.join(save_dir, plots_dir, phase, f"{stem}_{step}.jpg")
+    return os.path.join(save_dir, plots_dir, phase, f"{stem}.jpg")
 
 for phase_idx, (phase_name, steps) in enumerate(phases):
     iters = []
@@ -100,7 +102,13 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
         iters.append(i)
         st = time.time()
 
-        if phase_name == "alpha":
+        if phase_name == "joint":
+            loss = step_joint(pinn, optimiser, optimiser_alpha, optimiser_tau, t_phy, t_obs, u_obs, freq, phys_cfg["force_mag"], m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
+            with torch.no_grad():
+                alpha.data = torch.clamp(alpha.data, train_cfg["clamp_min"], train_cfg["clamp_max"])
+                alpha_list.append(alpha.item())
+                tau_list.append(tau.item())
+        elif phase_name == "alpha":
             loss = step_alpha(pinn, optimiser, optimiser_alpha, t_phy, t_obs, u_obs, freq, phys_cfg["force_mag"], m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
             with torch.no_grad():
                 alpha.data = torch.clamp(alpha.data, train_cfg["clamp_min"], train_cfg["clamp_max"])
@@ -117,7 +125,9 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
             log_iteration(i, iteration_time, loss, alpha, tau)
             jpg_path = plot_path(i, phase_name, stem, save_dir, art_cfg["plots_dir"])
             os.makedirs(os.path.dirname(jpg_path), exist_ok=True)
-            if phase_name == "alpha":
+            if phase_name == "joint":
+                fig = plot_joint(i, iters, alpha_list, alpha_actual, tau_list, tau_actual, pinn, t_test, t_fdm, u_fdm, l, jpg_path, fig_size)
+            elif phase_name == "alpha":
                 fig = plot_alpha(i, iters, alpha_list, alpha_actual, pinn, t_test, t_fdm, u_fdm, l, jpg_path, fig_size)
             else:
                 fig = plot_tau(i, iters, tau_list, tau_actual, pinn, t_test, t_fdm, u_fdm, l, jpg_path, fig_size)
