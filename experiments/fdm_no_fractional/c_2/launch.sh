@@ -5,8 +5,8 @@ module load python/3.12.12 Anaconda3/conda-23.1.0
 
 rm -r tau_initial_*
 
-CONFIG=$(cd ../../../../src/fpinns && pwd)/config.yaml
-PYTHONPATH_SRC=$(cd ../../../../src && pwd)
+CONFIG=$(cd ../../../src/fpinns && pwd)/config.yaml
+PYTHONPATH_SRC=$(cd ../../../src && pwd)
 
 for i in {10..14..2}
 do
