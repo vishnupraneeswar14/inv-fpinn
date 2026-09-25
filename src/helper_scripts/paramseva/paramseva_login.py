@@ -197,14 +197,20 @@ def sync_terminal(child):
     signal.signal(signal.SIGWINCH, _winch)
 
 
-def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff=15, debug=False):
+def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff=15, debug=False,
+          mode="shell", src=None, dst=None, recursive=False):
     print(f"connecting as {user}@{host} ...", file=sys.stderr)
     seen_prompt = False
+    target = src if mode == "scp" else f"{user}@{host}"
+    argv = ["-o", "PubkeyAuthentication=no",
+            "-o", "PreferredAuthentications=keyboard-interactive,password"]
+    if mode == "scp" and recursive:
+        argv.append("-r")
+    argv.append(target)
+    if mode == "scp":
+        argv.append(dst)
     for attempt in range(1, attempts + 1):
-        child = pexpect.spawn(ssh_cmd,
-                              ["-o", "PubkeyAuthentication=no",
-                               "-o", "PreferredAuthentications=keyboard-interactive,password",
-                               f"{user}@{host}"],
+        child = pexpect.spawn(ssh_cmd, argv,
                               encoding="utf-8", timeout=timeout)
         sync_terminal(child)
         code_hits = 0
@@ -246,7 +252,30 @@ def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff
                 elif i == 8:
                     child.sendline("yes")
                 elif i == DONE_IDX:
-                    break
+                    if mode == "shell":
+                        break
+                    # scp: "last login" then the transfer runs; keep waiting for EOF
+                elif i == 11:  # EOF
+                    if mode == "scp" and seen_prompt:
+                        return child
+                    child.close(force=True)
+                    if not seen_prompt:
+                        print(f"attempt {attempt}/{attempts}: network refused connection, retrying in {backoff}s",
+                              file=sys.stderr)
+                        retry_needed = True
+                        break
+                    tail = (child.before or "").strip()
+                    sys.exit(f"{'scp' if mode == 'scp' else 'login'} failed: {tail[:400]}")
+                elif i == 12:  # TIMEOUT
+                    if mode == "scp":
+                        continue  # transfer in progress; keep waiting
+                    if not seen_prompt:
+                        print(f"attempt {attempt}/{attempts}: network refused connection, retrying in {backoff}s",
+                              file=sys.stderr)
+                        retry_needed = True
+                        break
+                    tail = (child.before or "").strip()
+                    sys.exit(f"login failed: {tail[:400]}")
                 else:
                     tail = (child.before or child.buffer or "").strip()
                     child.close(force=True)
@@ -271,6 +300,8 @@ def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff
             termios.tcsetattr(child_fd, termios.TCSANOW, a)
             return child
         except pexpect.exceptions.EOF:
+            if mode == "scp" and seen_prompt:
+                return child
             child.close(force=True)
             if not seen_prompt:
                 print(f"attempt {attempt}/{attempts}: connection dropped, retrying in {backoff}s",
@@ -279,6 +310,10 @@ def login(ssh_cmd, host, user, password, secret, timeout=30, attempts=5, backoff
                 continue
             tail = (child.before or "").strip()
             sys.exit(f"login failed: {tail[:400]}")
+        except pexpect.exceptions.TIMEOUT:
+            if mode == "scp":
+                continue  # transfer in progress; keep waiting for EOF
+            raise
     sys.exit("all connection attempts failed (network blocked or server down)")
 
 
@@ -295,7 +330,22 @@ def interact_session(child):
     try:
         fd = os.open("/dev/tty", os.O_RDWR)
     except OSError:
-        child.interact()
+        try:
+            fd = os.dup(0)
+            termios.tcgetattr(fd)
+        except (OSError, termios.error):
+            fd = None
+    if fd is None:
+        try:
+            while child.isalive():
+                ready, _, _ = select.select([child.child_fd], [], [], 0.2)
+                if child.child_fd in ready:
+                    data = os.read(child.child_fd, 4096)
+                    if not data:
+                        break
+                    os.write(1, data)
+        except OSError:
+            pass
         return
     saved = termios.tcgetattr(fd)
     tty_mod.setraw(fd)
@@ -338,6 +388,32 @@ def interact_session(child):
         os.close(fd)
 
 
+def remote_ref(path, user, host):
+    """Prefix user@host: unless the path already carries a host."""
+    return path if ":" in path else f"{user}@{host}:{path}"
+
+
+def scp_interactive(direction):
+    """Prompt for direction and paths; direction defaults to the flag's."""
+    answer = input(f"direction (down/up) [{direction}]: ").strip() or direction
+    if answer not in ("down", "up"):
+        sys.exit(f"bad direction: {answer!r} (use down or up)")
+    direction = answer
+    if direction == "down":
+        src = input("remote src (user@host:path): ").strip()
+        if not src:
+            sys.exit("no src given")
+        dst = input("local dest [.]: ").strip() or "."
+    else:
+        src = input("local src: ").strip()
+        if not src:
+            sys.exit("no src given")
+        dst = input("remote dest (user@host:path): ").strip()
+        if not dst:
+            sys.exit("no dest given")
+    return direction, src, dst
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -354,9 +430,27 @@ def main():
     parser.add_argument("--backoff", type=int, default=5,
                         help="seconds between retries (default: 5)")
     parser.add_argument("--code", action="store_true", help="print current TOTP code and exit")
+    parser.add_argument("--scp-up", nargs="*", metavar="PATH",
+                        help="upload: SRC (local) DEST (remote); 2 paths, or 0 for interactive")
+    parser.add_argument("--scp-down", nargs="*", metavar="PATH",
+                        help="download: SRC (remote) DEST (local); 2 paths, or 0 for interactive")
+    parser.add_argument("-r", "--recursive", action="store_true",
+                        help="recursive scp transfer (-r)")
     parser.add_argument("--debug", action="store_true",
                         help="log every prompt matched during login")
-    args = parser.parse_args()
+    raw = sys.argv[1:]
+    cleaned = []
+    pre_recursive = False
+    i = 0
+    while i < len(raw):
+        a = raw[i]
+        cleaned.append(a)
+        i += 1
+        if a in ("--scp-up", "--scp-down"):
+            while i < len(raw) and raw[i] in ("-r", "--recursive"):
+                pre_recursive = True
+                i += 1
+    args = parser.parse_args(cleaned)
 
     entries = load_dotenv_entries(args.env)
     if not entries:
@@ -400,6 +494,35 @@ def main():
     user = args.user if (args.user is not None and not args.user.isdigit()) else eget("USERNAME")
     password = args.password or eget("PASSWORD")
     secret = args.secret or eget("TOTP_SECRET")
+
+    if args.scp_up is not None and args.scp_down is not None:
+        sys.exit("pick one: --scp-up or --scp-down")
+    if args.scp_up is not None or args.scp_down is not None:
+        direction = "up" if args.scp_up is not None else "down"
+        paths = args.scp_up if args.scp_up is not None else args.scp_down
+        if len(paths) > 2:
+            sys.exit(f"--scp-{direction} takes SRC DEST (got {len(paths)} paths)")
+        if len(paths) == 1:
+            sys.exit(f"--scp-{direction}: give 2 paths, or 0 for interactive prompts")
+        if len(paths) == 0:
+            direction, src, dst = scp_interactive(direction)
+        else:
+            src, dst = paths
+        if direction == "down":
+            src = remote_ref(src, user, host)
+        else:
+            dst = remote_ref(dst, user, host)
+        scp_cmd = os.environ.get("PARAMSEVA_SCP_CMD", "scp")
+        recursive = pre_recursive or args.recursive
+        child = login(scp_cmd, host, user, password, secret,
+                      attempts=args.attempts, backoff=args.backoff, debug=args.debug,
+                      mode="scp", src=src, dst=dst, recursive=recursive)
+        code = child.exitstatus if child.exitstatus is not None else 0
+        if code:
+            print(f"scp failed (exit {code})", file=sys.stderr)
+            sys.exit(code)
+        print("transfer complete")
+        return
 
     child = login(args.ssh_cmd, host, user, password, secret,
                   attempts=args.attempts, backoff=args.backoff, debug=args.debug)
