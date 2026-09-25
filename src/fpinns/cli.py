@@ -13,9 +13,15 @@ def set_nested(cfg, dotted_key, value):
     keys = dotted_key.split(".")
     node = cfg
     for key in keys[:-1]:
-        if key not in node or not isinstance(node[key], dict):
+        if isinstance(node, list):
+            key = int(key)
+            while len(node) <= key:
+                node.append({})
+        elif key not in node or not isinstance(node[key], (dict, list)):
             node[key] = {}
         node = node[key]
+    if isinstance(node, list):
+        keys[-1] = int(keys[-1])
     node[keys[-1]] = value
 
 

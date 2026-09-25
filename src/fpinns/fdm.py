@@ -33,6 +33,18 @@ def FracSDOF(m,k,c,dt,F,x0,v0,T,a,tau):
             u[n + 1] = 2 * u[n] - u[n - 1] + (F[n] - k * u[n] - c * np.dot(wv, u[n - tf :n+1])) / (m / dt ** 2)
     return u, t
 
+def fdm_no_fractional(m,k,c,dt,F,x0,v0,T):
+    dt = float(dt)
+    Nt = int(np.ceil(T/dt))
+    u = np.zeros(Nt)
+    t = np.linspace(0, T, Nt)
+    u[0] = x0
+    u[1] = u[0] + dt*v0 + (F[0] - k*u[0] - c*v0)/(2*m/dt**2)
+    for n in range(1, Nt-1):
+        v = (u[n] - u[n-1])/dt
+        u[n+1] = 2*u[n] - u[n-1] + (F[n] - k*u[n] - c*v)/(m/dt**2)
+    return u, t
+
 def fracSDOF(m,k,c,dt,F,x0,v0,T,a,tau):
     dt = float(dt)
     Nt = int(round(T/dt))

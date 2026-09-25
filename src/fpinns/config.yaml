@@ -3,7 +3,6 @@ model:
   hidden_size: 24
   output_size: 1
   layer_count: 6
-  freq: 25
   activation: tanh
   activation_init: 0.6
   use_mask: false
@@ -12,22 +11,26 @@ physics:
   m: 2
   k: 200
   c: 2
-  x0: 0.5
-  v0: 0.0
   alpha_actual: 0.6
   T: 20.0
   tau_actual: 12.0
   dt: 0.01
-  force_mag: 1.0
+  fdm_no_fractional: false
+
+fdm_signals:
+  - freq: 25
+    force_mag: 1.0
+    x0: 0.5
+    v0: 0.0
 
 training:
   seed: 123
-  mode: joint
+  mode: tau
   alpha_steps: 10000
   tau_steps: 10000
   alpha_tau_steps: 20000
-  resume_path: artifacts/checkpoints/alpha/mask_step_6.pth
-#  resume_path: null
+#  resume_path: artifacts/checkpoints/alpha/mask_step_6.pth
+  resume_path: null
   alpha_init: 0.9
   tau_init: 13.0
   clamp_min: 0.1
