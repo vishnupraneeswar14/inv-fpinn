@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from fpinns.cli import parse_args
-from fpinns.fdm import FracSDOF, fdm_no_fractional
+from fpinns.fdm import ExpSDOF, FracSDOF, fdm_no_fractional
 from fpinns.ffn import Net
 from fpinns.train import init_inverse_params, load_checkpoint, log_iteration, plot_alpha, plot_joint, plot_tau, save_checkpoint, step_alpha, step_joint, step_tau
 
@@ -19,7 +19,8 @@ train_cfg = cfg["training"]
 art_cfg = cfg["artifacts"]
 
 torch.manual_seed(train_cfg["seed"])
-m, k, c = phys_cfg["m"], phys_cfg["k"], phys_cfg["c"]
+m = phys_cfg["m"]
+k0, c0 = phys_cfg["k"], phys_cfg["c"]
 
 alpha_actual = phys_cfg["alpha_actual"]
 tau_actual = phys_cfg["tau_actual"]
@@ -27,6 +28,9 @@ T = phys_cfg["T"]
 dt = phys_cfg["dt"]
 
 alpha, tau = init_inverse_params(train_cfg["alpha_init"], train_cfg["tau_init"])
+train_KC = train_cfg.get("k_c_trainable", False)
+k = torch.tensor([k0], requires_grad=train_KC)
+c = torch.tensor([c0], requires_grad=train_KC)
 
 expt_cfgs = cfg["fdm_signals"]
 pinns = []
@@ -35,9 +39,9 @@ for e in expt_cfgs:
 
 resume_path = train_cfg["resume_path"]
 if resume_path:
-    load_checkpoint(resume_path, pinns, alpha, tau)
+    load_checkpoint(resume_path, pinns, alpha, tau, k, c)
 
-print(f'alpha_actual: {alpha_actual}, tau_actual: {tau_actual}, T: {T}, alpha: {alpha}, tau: {tau}')
+print(f'alpha_actual: {alpha_actual}, tau_actual: {tau_actual}, T: {T}, alpha: {alpha}, tau: {tau}, k: {k.item()}, c: {c.item()}')
 
 t = np.arange(0, T, dt)
 num_indices = train_cfg["t_obs_points"]
@@ -47,10 +51,12 @@ t_phys, t_tests, t_obss, u_obss, u_fdms, t_fdms, freqs, force_mags = [], [], [],
 for e in expt_cfgs:
     F = e["force_mag"]*np.sin(e["freq"]*t)
     x0_e, v0_e = e.get("x0", 0.0), e.get("v0", 0.0)
-    if phys_cfg.get("fdm_no_fractional", False):
-        u_fdm, t_fdm = fdm_no_fractional(m, k, c, dt, F, x0_e, v0_e, T)
+    if phys_cfg.get("fdm_exp", False):
+        u_fdm, t_fdm = ExpSDOF(m, k0, c0, dt, F, x0_e, v0_e, T, phys_cfg["tauc"], tau_actual)
+    elif phys_cfg.get("fdm_no_fractional", False):
+        u_fdm, t_fdm = fdm_no_fractional(m, k0, c0, dt, F, x0_e, v0_e, T)
     else:
-        u_fdm, t_fdm = FracSDOF(m, k, c, dt, F, x0_e, v0_e, T, alpha_actual, tau_actual)
+        u_fdm, t_fdm = FracSDOF(m, k0, c0, dt, F, x0_e, v0_e, T, alpha_actual, tau_actual)
     t_phys.append(torch.linspace(0, T, train_cfg["t_phy_points"], requires_grad=True).view(-1, 1))
     t_tests.append(torch.linspace(0, T, train_cfg["t_test_points"]).view(-1, 1))
     t_obs = torch.tensor(t[index], dtype=torch.float32).view(-1, 1)
@@ -66,6 +72,8 @@ images = []
 optimisers = [torch.optim.Adam(list(p.parameters()), lr=train_cfg["lr_pinn"]) for p in pinns]
 optimiser_tau   = torch.optim.Adam([tau], lr=train_cfg["lr_tau"])
 optimiser_alpha = torch.optim.Adam([alpha], lr=train_cfg["lr_alpha"])
+optimiser_k = torch.optim.Adam([k], lr=train_cfg["lr_k"]) if train_KC else None
+optimiser_c = torch.optim.Adam([c], lr=train_cfg["lr_c"]) if train_KC else None
 
 mode = train_cfg["mode"]
 if mode == "alpha":
@@ -115,18 +123,18 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
         st = time.time()
 
         if phase_name == "joint":
-            loss = step_joint(pinns, optimisers, optimiser_alpha, optimiser_tau, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
+            loss = step_joint(pinns, optimisers, optimiser_alpha, optimiser_tau, optimiser_k, optimiser_c, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
             with torch.no_grad():
                 alpha.data = torch.clamp(alpha.data, train_cfg["clamp_min"], train_cfg["clamp_max"])
                 alpha_list.append(alpha.item())
                 tau_list.append(tau.item())
         elif phase_name == "alpha":
-            loss = step_alpha(pinns, optimisers, optimiser_alpha, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
+            loss = step_alpha(pinns, optimisers, optimiser_alpha, optimiser_k, optimiser_c, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
             with torch.no_grad():
                 alpha.data = torch.clamp(alpha.data, train_cfg["clamp_min"], train_cfg["clamp_max"])
                 alpha_list.append(alpha.item())
         else:
-            loss = step_tau(pinns, optimisers, optimiser_tau, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
+            loss = step_tau(pinns, optimisers, optimiser_tau, optimiser_k, optimiser_c, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
             with torch.no_grad():
                 tau_list.append(tau.item())
         l.append(loss.detach())
@@ -156,10 +164,10 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
             os.makedirs(os.path.dirname(gif_path), exist_ok=True)
             imageio.mimsave(gif_path, images, fps=art_cfg["fps"])
         if i % ckpt_every == 0:
-            save_checkpoint(checkpoint_path(i, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau)
+            save_checkpoint(checkpoint_path(i, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau, k, c)
 
     print(f'Phase {phase_name} is done with {steps} steps!')
     if len(phases) == 2 and phase_idx == 0:
-        save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau)
+        save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau, k, c)
 
-save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau)
+save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau, k, c)

@@ -25,41 +25,65 @@ def compute_combined_loss(pinns, t_phys, t_obss, u_obss, freqs, force_mags, m, k
     return loss
 
 
-def step_alpha(pinns, optimisers, optimiser_alpha, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):
+def step_alpha(pinns, optimisers, optimiser_alpha, optimiser_k, optimiser_c, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):
     for optimiser in optimisers:
         optimiser.zero_grad()
     optimiser_alpha.zero_grad()
+    if optimiser_k is not None:
+        optimiser_k.zero_grad()
+    if optimiser_c is not None:
+        optimiser_c.zero_grad()
     loss = compute_combined_loss(pinns, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
     loss.backward()
     for optimiser in optimisers:
         optimiser.step()
     optimiser_alpha.step()
+    if optimiser_k is not None:
+        optimiser_k.step()
+    if optimiser_c is not None:
+        optimiser_c.step()
     return loss
 
 
-def step_tau(pinns, optimisers, optimiser_tau, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):
+def step_tau(pinns, optimisers, optimiser_tau, optimiser_k, optimiser_c, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):
     for optimiser in optimisers:
         optimiser.zero_grad()
     optimiser_tau.zero_grad()
+    if optimiser_k is not None:
+        optimiser_k.zero_grad()
+    if optimiser_c is not None:
+        optimiser_c.zero_grad()
     loss = compute_combined_loss(pinns, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
     loss.backward()
     for optimiser in optimisers:
         optimiser.step()
     optimiser_tau.step()
+    if optimiser_k is not None:
+        optimiser_k.step()
+    if optimiser_c is not None:
+        optimiser_c.step()
     return loss
 
 
-def step_joint(pinns, optimisers, optimiser_alpha, optimiser_tau, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):
+def step_joint(pinns, optimisers, optimiser_alpha, optimiser_tau, optimiser_k, optimiser_c, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2):
     for optimiser in optimisers:
         optimiser.zero_grad()
     optimiser_alpha.zero_grad()
     optimiser_tau.zero_grad()
+    if optimiser_k is not None:
+        optimiser_k.zero_grad()
+    if optimiser_c is not None:
+        optimiser_c.zero_grad()
     loss = compute_combined_loss(pinns, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
     loss.backward()
     for optimiser in optimisers:
         optimiser.step()
     optimiser_alpha.step()
     optimiser_tau.step()
+    if optimiser_k is not None:
+        optimiser_k.step()
+    if optimiser_c is not None:
+        optimiser_c.step()
     return loss
 
 
@@ -69,7 +93,7 @@ def init_inverse_params(alpha_init, tau_init):
     return alpha, tau
 
 
-def load_checkpoint(path, pinns, alpha, tau):
+def load_checkpoint(path, pinns, alpha, tau, E0=None, E1=None):
     try:
         ckpt = torch.load(path, weights_only=False)
     except TypeError:
@@ -83,17 +107,27 @@ def load_checkpoint(path, pinns, alpha, tau):
         alpha.copy_(torch.as_tensor(ckpt["inverse_parameter_alpha"], dtype=alpha.dtype))
         if "inverse_parameter_tau" in ckpt:
             tau.copy_(torch.as_tensor(ckpt["inverse_parameter_tau"], dtype=tau.dtype))
+        if E0 is not None and "inverse_parameter_k" in ckpt:
+            E0.copy_(torch.as_tensor(ckpt["inverse_parameter_k"], dtype=E0.dtype))
+        if E1 is not None and "inverse_parameter_c" in ckpt:
+            E1.copy_(torch.as_tensor(ckpt["inverse_parameter_c"], dtype=E1.dtype))
 
 
-def save_checkpoint(path, pinns, alpha, tau):
+def save_checkpoint(path, pinns, alpha, tau, E0=None, E1=None):
     state = {"model_parameters": pinns[0].state_dict(), "inverse_parameter_alpha": alpha.detach().cpu().numpy(), "inverse_parameter_tau": tau.detach().cpu().numpy()}
     for idx in range(1, len(pinns)):
         state[f"model_parameters{idx}"] = pinns[idx].state_dict()
+    if E0 is not None:
+        state["inverse_parameter_k"] = E0.detach().cpu().numpy()
+    if E1 is not None:
+        state["inverse_parameter_c"] = E1.detach().cpu().numpy()
     torch.save(state, path)
 
 
-def log_iteration(i, iteration_time, loss, alpha, tau):
-    print(f"Training step {i}, Time taken: {iteration_time:.4f}, alpha: {alpha}, alpha_grad: {alpha.grad}, tau: {tau}, tau_grad: {tau.grad}, Total log loss : {torch.log10(torch.tensor([loss]))}")
+def log_iteration(i, iteration_time, loss, alpha, tau, k=None, c=None):
+    ktxt = f", k: {k.item()}, k_grad: {k.grad}" if k is not None else ""
+    ctxt = f", c: {c.item()}, c_grad: {c.grad}" if c is not None else ""
+    print(f"Training step {i}, Time taken: {iteration_time:.4f}, alpha: {alpha}, alpha_grad: {alpha.grad}, tau: {tau}, tau_grad: {tau.grad}{ktxt}{ctxt}, Total log loss : {torch.log10(torch.tensor([loss]))}")
 
 
 def plot_output(ax, pinns, t_tests, t_fdms, u_fdms):

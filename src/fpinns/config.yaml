@@ -16,6 +16,8 @@ physics:
   tau_actual: 12.0
   dt: 0.01
   fdm_no_fractional: false
+  fdm_exp: false
+  tauc: 8.0
 
 fdm_signals:
   - freq: 25
@@ -28,16 +30,19 @@ training:
   mode: tau
   alpha_steps: 10000
   tau_steps: 10000
-  alpha_tau_steps: 20000
+  alpha_tau_steps: 25000
 #  resume_path: artifacts/checkpoints/alpha/mask_step_6.pth
   resume_path: null
   alpha_init: 0.9
   tau_init: 13.0
+  k_c_trainable: false
   clamp_min: 0.1
   clamp_max: 0.99
   lr_pinn: 0.001
   lr_tau: 0.040
   lr_alpha: 0.001
+  lr_k: 0.001
+  lr_c: 0.001
   lam1: 0.0001
   lam2: 0.1
   noise_std: 0.02
