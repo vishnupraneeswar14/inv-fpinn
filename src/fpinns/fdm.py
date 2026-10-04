@@ -77,7 +77,7 @@ def ExpSDOF(m, E0, E1, dt, F, x0, v0, T, tauc, tau):
         # Exponential kernel
         kernel = (1/tauc)*np.exp(-lag/tauc)
         # Exponential memory term
-        q = np.trapezoid(kernel*v_hist, dx=dt)
+        q = np.trapz(kernel*v_hist, dx=dt)
         # FDM update
         u[n+1] = 2*u[n] - u[n-1] + (F[n] - E0*u[n] - E1*q)/(m/dt**2)
 
