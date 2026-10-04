@@ -82,3 +82,5 @@ def ExpSDOF(m, E0, E1, dt, F, x0, v0, T, tauc, tau):
         u[n+1] = 2*u[n] - u[n-1] + (F[n] - E0*u[n] - E1*q)/(m/dt**2)
 
     return u, t
+
+#change for git to reflect

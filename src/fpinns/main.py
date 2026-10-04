@@ -9,7 +9,7 @@ import torch
 from fpinns.cli import parse_args
 from fpinns.fdm import ExpSDOF, FracSDOF, fdm_no_fractional
 from fpinns.ffn import Net
-from fpinns.train import init_inverse_params, load_checkpoint, log_iteration, plot_alpha, plot_joint, plot_tau, save_checkpoint, step_alpha, step_joint, step_tau
+from fpinns.train import init_inverse_params, load_checkpoint, log_iteration, plot_alpha, plot_joint, plot_kc, plot_tau, save_checkpoint, step_alpha, step_joint, step_tau
 
 cfg = parse_args()
 
@@ -20,7 +20,7 @@ art_cfg = cfg["artifacts"]
 
 torch.manual_seed(train_cfg["seed"])
 m = phys_cfg["m"]
-k0, c0 = phys_cfg["k"], phys_cfg["c"]
+k0, c0 = float(phys_cfg["k_actual"]), float(phys_cfg["c_actual"])
 
 alpha_actual = phys_cfg["alpha_actual"]
 tau_actual = phys_cfg["tau_actual"]
@@ -29,8 +29,8 @@ dt = phys_cfg["dt"]
 
 alpha, tau = init_inverse_params(train_cfg["alpha_init"], train_cfg["tau_init"])
 train_KC = train_cfg.get("k_c_trainable", False)
-k = torch.tensor([k0], requires_grad=train_KC)
-c = torch.tensor([c0], requires_grad=train_KC)
+k = torch.tensor([float(train_cfg["k_initial"])], requires_grad=train_KC)
+c = torch.tensor([float(train_cfg["c_initial"])], requires_grad=train_KC)
 
 expt_cfgs = cfg["fdm_signals"]
 pinns = []
@@ -68,6 +68,7 @@ for e in expt_cfgs:
     freqs.append(e["freq"])
     force_mags.append(e["force_mag"])
 images = []
+kc_images = []
 
 optimisers = [torch.optim.Adam(list(p.parameters()), lr=train_cfg["lr_pinn"]) for p in pinns]
 optimiser_tau   = torch.optim.Adam([tau], lr=train_cfg["lr_tau"])
@@ -114,6 +115,8 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
     l = []
     alpha_list = []
     tau_list = []
+    k_list = []
+    c_list = []
     for dir_key in ("ckpt_dir", "plots_dir", "gif_dir"):
         os.makedirs(os.path.join(save_dir, art_cfg[dir_key], phase_name), exist_ok=True)
     print(f'Phase {phase_name} will be run for {steps} steps...')
@@ -137,20 +140,23 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
             loss = step_tau(pinns, optimisers, optimiser_tau, optimiser_k, optimiser_c, t_phys, t_obss, u_obss, freqs, force_mags, m, k, c, dt, alpha, tau, T, tau_actual, lam1, lam2)
             with torch.no_grad():
                 tau_list.append(tau.item())
+        with torch.no_grad():
+            k_list.append(k.item())
+            c_list.append(c.item())
         l.append(loss.detach())
 
         iteration_time = time.time() - st
 
         if i % plot_every == 0:
-            log_iteration(i, iteration_time, loss, alpha, tau)
+            log_iteration(i, iteration_time, loss, alpha, tau, k, c)
             jpg_path = plot_path(i, phase_name, stem, save_dir, art_cfg["plots_dir"])
             os.makedirs(os.path.dirname(jpg_path), exist_ok=True)
             if phase_name == "joint":
-                fig = plot_joint(i, iters, alpha_list, alpha_actual, tau_list, tau_actual, pinns, t_tests, t_fdms, u_fdms, l, jpg_path, fig_size)
+                fig = plot_joint(i, iters, alpha_list, alpha_actual, tau_list, tau_actual, k_list, c_list, k0, c0, pinns, t_tests, t_fdms, u_fdms, l, jpg_path, fig_size)
             elif phase_name == "alpha":
-                fig = plot_alpha(i, iters, alpha_list, alpha_actual, pinns, t_tests, t_fdms, u_fdms, l, jpg_path, fig_size)
+                fig = plot_alpha(i, iters, alpha_list, alpha_actual, k_list, c_list, k0, c0, pinns, t_tests, t_fdms, u_fdms, l, jpg_path, fig_size)
             else:
-                fig = plot_tau(i, iters, tau_list, tau_actual, pinns, t_tests, t_fdms, u_fdms, l, jpg_path, fig_size)
+                fig = plot_tau(i, iters, tau_list, tau_actual, k_list, c_list, k0, c0, pinns, t_tests, t_fdms, u_fdms, l, jpg_path, fig_size)
 
             fig.canvas.draw()
             image_rgba = fig.canvas.buffer_rgba()
@@ -159,10 +165,21 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
             images.append(image_rgb)
             plt.close(fig)
 
+            kc_jpg = os.path.join(os.path.dirname(jpg_path), "kc.jpg")
+            kc_fig = plot_kc(i, iters, k_list, c_list, k0, c0, kc_jpg, fig_size)
+            kc_fig.canvas.draw()
+            kc_image_rgba = kc_fig.canvas.buffer_rgba()
+            kc_width, kc_height = kc_fig.canvas.get_width_height()
+            kc_image_rgb = np.frombuffer(kc_image_rgba, dtype=np.uint8).reshape(kc_height, kc_width, 4)[:, :, :3]
+            kc_images.append(kc_image_rgb)
+            plt.close(kc_fig)
+
         if i % gif_every == 0:
             gif_path = os.path.join(save_dir, art_cfg["gif_dir"], phase_name, f"{stem}_{phase_name}.gif")
             os.makedirs(os.path.dirname(gif_path), exist_ok=True)
             imageio.mimsave(gif_path, images, fps=art_cfg["fps"])
+            kc_gif_path = os.path.join(save_dir, art_cfg["gif_dir"], phase_name, f"{stem}_{phase_name}_kc.gif")
+            imageio.mimsave(kc_gif_path, kc_images, fps=art_cfg["fps"])
         if i % ckpt_every == 0:
             save_checkpoint(checkpoint_path(i, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau, k, c)
 
@@ -171,3 +188,5 @@ for phase_idx, (phase_name, steps) in enumerate(phases):
         save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau, k, c)
 
 save_checkpoint(checkpoint_path(steps - 1, phase_name, stem, save_dir, art_cfg["ckpt_dir"]), pinns, alpha, tau, k, c)
+
+#change for git to reflect

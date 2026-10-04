@@ -8,16 +8,17 @@ rm -r tau_actual_*
 CONFIG=$(cd ../../../src/fpinns && pwd)/config.yaml
 PYTHONPATH_SRC=$(cd ../../../src && pwd)
 
-for ta in 6 8 10
+for ta in {6..10..2}
 do
 
 mkdir -p tau_actual_$ta
+cd tau_actual_$ta
 
-for ti in 4 9 14
+for ti in {4..14..5}
 do
 
-mkdir -p tau_actual_$ta/tau_initial_$ti
-cd tau_actual_$ta/tau_initial_$ti
+mkdir -p tau_initial_$ti
+cd tau_initial_$ti
 
 echo "#!/bin/sh" > fixed_tau_${ta}_${ti}.sh
 echo "#SBATCH --time=24:00:00" >> fixed_tau_${ta}_${ti}.sh

@@ -93,7 +93,7 @@ def init_inverse_params(alpha_init, tau_init):
     return alpha, tau
 
 
-def load_checkpoint(path, pinns, alpha, tau, E0=None, E1=None):
+def load_checkpoint(path, pinns, alpha, tau, k=None, c=None):
     try:
         ckpt = torch.load(path, weights_only=False)
     except TypeError:
@@ -107,20 +107,20 @@ def load_checkpoint(path, pinns, alpha, tau, E0=None, E1=None):
         alpha.copy_(torch.as_tensor(ckpt["inverse_parameter_alpha"], dtype=alpha.dtype))
         if "inverse_parameter_tau" in ckpt:
             tau.copy_(torch.as_tensor(ckpt["inverse_parameter_tau"], dtype=tau.dtype))
-        if E0 is not None and "inverse_parameter_k" in ckpt:
-            E0.copy_(torch.as_tensor(ckpt["inverse_parameter_k"], dtype=E0.dtype))
-        if E1 is not None and "inverse_parameter_c" in ckpt:
-            E1.copy_(torch.as_tensor(ckpt["inverse_parameter_c"], dtype=E1.dtype))
+        if k is not None and "inverse_parameter_k" in ckpt:
+            k.copy_(torch.as_tensor(ckpt["inverse_parameter_k"], dtype=k.dtype))
+        if c is not None and "inverse_parameter_c" in ckpt:
+            c.copy_(torch.as_tensor(ckpt["inverse_parameter_c"], dtype=c.dtype))
 
 
-def save_checkpoint(path, pinns, alpha, tau, E0=None, E1=None):
+def save_checkpoint(path, pinns, alpha, tau, k=None, c=None):
     state = {"model_parameters": pinns[0].state_dict(), "inverse_parameter_alpha": alpha.detach().cpu().numpy(), "inverse_parameter_tau": tau.detach().cpu().numpy()}
     for idx in range(1, len(pinns)):
         state[f"model_parameters{idx}"] = pinns[idx].state_dict()
-    if E0 is not None:
-        state["inverse_parameter_k"] = E0.detach().cpu().numpy()
-    if E1 is not None:
-        state["inverse_parameter_c"] = E1.detach().cpu().numpy()
+    if k is not None:
+        state["inverse_parameter_k"] = k.detach().cpu().numpy()
+    if c is not None:
+        state["inverse_parameter_c"] = c.detach().cpu().numpy()
     torch.save(state, path)
 
 
@@ -160,6 +160,17 @@ def plot_tau_param(ax, iters, tau_list, tau_actual):
     ax.set_title('Prediction of Fractional Order tau')
 
 
+def plot_kc_param(ax, iters, k_list, c_list, k_actual, c_actual):
+    ax.plot(iters, k_list, label="k")
+    ax.plot(iters, c_list, label="c")
+    ax.hlines(k_actual, 0, len(k_list), colors=['g'], linestyles='dotted')
+    ax.hlines(c_actual, 0, len(c_list), colors=['r'], linestyles='dotted')
+    ax.legend()
+    ax.set_xlabel('Iters')
+    ax.set_ylabel('k, c')
+    ax.set_title('Prediction of Stiffness k and Damping c')
+
+
 def plot_loss(ax, iters, l):
     ax.plot(iters, torch.log10(torch.tensor([l])).view(-1))
     ax.set_xlabel('Iters')
@@ -167,32 +178,45 @@ def plot_loss(ax, iters, l):
     ax.set_title('Loss Curve')
 
 
-def plot_alpha(i, iters, alpha_list, alpha_actual, pinns, t_tests, t_fdms, u_fdms, l, save_path, fig_size):
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=fig_size)
-    plot_output(ax1, pinns, t_tests, t_fdms, u_fdms)
-    plot_alpha_param(ax2, iters, alpha_list, alpha_actual)
-    plot_loss(ax3, iters, l)
-    fig.suptitle(f"Training step {i}")
-    plt.savefig(save_path)
-    return fig
-
-
-def plot_tau(i, iters, tau_list, tau_actual, pinns, t_tests, t_fdms, u_fdms, l, save_path, fig_size):
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=fig_size)
-    plot_output(ax1, pinns, t_tests, t_fdms, u_fdms)
-    plot_tau_param(ax2, iters, tau_list, tau_actual)
-    plot_loss(ax3, iters, l)
-    fig.suptitle(f"Training step {i}")
-    plt.savefig(save_path)
-    return fig
-
-
-def plot_joint(i, iters, alpha_list, alpha_actual, tau_list, tau_actual, pinns, t_tests, t_fdms, u_fdms, l, save_path, fig_size):
+def plot_alpha(i, iters, alpha_list, alpha_actual, k_list, c_list, k_actual, c_actual, pinns, t_tests, t_fdms, u_fdms, l, save_path, fig_size):
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=fig_size)
     plot_output(ax1, pinns, t_tests, t_fdms, u_fdms)
     plot_alpha_param(ax2, iters, alpha_list, alpha_actual)
-    plot_tau_param(ax3, iters, tau_list, tau_actual)
+    plot_kc_param(ax3, iters, k_list, c_list, k_actual, c_actual)
     plot_loss(ax4, iters, l)
+    fig.suptitle(f"Training step {i}")
+    plt.savefig(save_path)
+    return fig
+
+#change for git to reflect
+
+
+def plot_tau(i, iters, tau_list, tau_actual, k_list, c_list, k_actual, c_actual, pinns, t_tests, t_fdms, u_fdms, l, save_path, fig_size):
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=fig_size)
+    plot_output(ax1, pinns, t_tests, t_fdms, u_fdms)
+    plot_tau_param(ax2, iters, tau_list, tau_actual)
+    plot_kc_param(ax3, iters, k_list, c_list, k_actual, c_actual)
+    plot_loss(ax4, iters, l)
+    fig.suptitle(f"Training step {i}")
+    plt.savefig(save_path)
+    return fig
+
+
+def plot_joint(i, iters, alpha_list, alpha_actual, tau_list, tau_actual, k_list, c_list, k_actual, c_actual, pinns, t_tests, t_fdms, u_fdms, l, save_path, fig_size):
+    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=fig_size)
+    plot_output(ax1, pinns, t_tests, t_fdms, u_fdms)
+    plot_alpha_param(ax2, iters, alpha_list, alpha_actual)
+    plot_tau_param(ax3, iters, tau_list, tau_actual)
+    plot_kc_param(ax4, iters, k_list, c_list, k_actual, c_actual)
+    plot_loss(ax5, iters, l)
+    fig.suptitle(f"Training step {i}")
+    plt.savefig(save_path)
+    return fig
+
+
+def plot_kc(i, iters, k_list, c_list, k_actual, c_actual, save_path, fig_size):
+    fig, ax = plt.subplots(1, 1, figsize=fig_size)
+    plot_kc_param(ax, iters, k_list, c_list, k_actual, c_actual)
     fig.suptitle(f"Training step {i}")
     plt.savefig(save_path)
     return fig

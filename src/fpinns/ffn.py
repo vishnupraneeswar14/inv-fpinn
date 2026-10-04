@@ -52,3 +52,5 @@ class Net(nn.Module):
         for layers in self.Layer:
             x = layers(x)
         return self.Out_Layer(x)
+
+#change for git to reflect
