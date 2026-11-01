@@ -67,7 +67,7 @@ def ExpSDOF(m,k,c,dt,F,x0,v0,T,tauc,tau):
     u[1] = u[0] + dt*v0 + (F[0] - k*u[0])/(m/dt**2)
     tf = int(round(tau/dt))
     for n in range(1, Nt-1):
-        if n < tf:
+        if n < tf+1:
             q[n] = (q[n-1] + (u[n] - u[n-1])/tauc) / (1 + dt/tauc)
         else:
             q[n] = (q[n-1] + (u[n] - u[n-1])/tauc - np.exp(-tau/tauc)*(u[n-tf] - u[n-tf-1])/tauc) / (1 + dt/tauc)
