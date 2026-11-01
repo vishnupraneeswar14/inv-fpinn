@@ -64,7 +64,7 @@ def ExpSDOF(m, E0, E1, dt, F, x0, v0, T, tauc, tau):
     t = np.linspace(0, T, Nt)
 
     u[0] = x0
-    u[1] = u[0] + dt*v0 + (F[0] - E0*u[0]) / (2*m/dt**2)        #q0=0, as q=0 for t<=0
+    u[1] = u[0] + dt*v0 + (F[0] - E0*u[0]) / (m/dt**2)        #q0=0, as q=0 for t<=0
     tm = int(np.ceil(tau/dt))
 
     for n in range(1, Nt - 1):
@@ -77,10 +77,9 @@ def ExpSDOF(m, E0, E1, dt, F, x0, v0, T, tauc, tau):
         # Exponential kernel
         kernel = (1/tauc)*np.exp(-lag/tauc)
         # Exponential memory term
-        q = np.trapz(kernel*v_hist, dx=dt)
+        q = np.trapezoid(kernel*v_hist, dx=dt)
         # FDM update
         u[n+1] = 2*u[n] - u[n-1] + (F[n] - E0*u[n] - E1*q)/(m/dt**2)
 
     return u, t
 
-#change for git to reflect
